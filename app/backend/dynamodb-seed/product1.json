@@ -1,0 +1,8 @@
+{
+  "PK": {"S": "PRODUCT#001"},
+  "SK": {"S": "DETAILS"},
+  "name": {"S": "Remera Nexora"},
+  "price": {"N": "2500"},
+  "description": {"S": "Remera de algodón con logo Nexora"},
+  "stock": {"N": "50"}
+}

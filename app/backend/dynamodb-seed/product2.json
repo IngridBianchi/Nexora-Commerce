@@ -1,0 +1,8 @@
+{
+  "PK": {"S": "PRODUCT#002"},
+  "SK": {"S": "DETAILS"},
+  "name": {"S": "Taza Nexora"},
+  "price": {"N": "1200"},
+  "description": {"S": "Taza cerámica blanca con logo Nexora"},
+  "stock": {"N": "100"}
+}

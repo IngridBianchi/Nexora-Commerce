@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Nexora Backend API
+  version: 1.0.0
+  description: Contrato OpenAPI para productos y ordenes de Nexora Commerce.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId:
+        default: your-api-id
+      region:
+        default: us-east-1
+      stage:
+        default: dev
+paths:
+  /products:
+    get:
+      summary: Obtener catalogo de productos
+      operationId: getProducts
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          description: Cantidad maxima de productos devueltos
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Catalogo obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+                required:
+                  - data
+        "400":
+          description: Parametro limit invalido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /orders:
+    post:
+      summary: Crear una orden
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Orden creada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateOrderResponse"
+        "400":
+          description: Body JSON invalido o ausente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validacion de negocio fallida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          example: keyboard-001
+        name:
+          type: string
+          example: Teclado mecanico
+        description:
+          type: string
+          example: Teclado RGB con switches tactiles
+        price:
+          type: number
+          format: float
+          example: 89.99
+        imageUrl:
+          type: string
+          format: uri
+          example: https://picsum.photos/seed/keyboard/300/200
+      required:
+        - id
+        - name
+        - description
+        - price
+        - imageUrl
+    CreateOrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: keyboard-001
+        name:
+          type: string
+          example: Teclado mecanico
+        unitPrice:
+          type: number
+          format: float
+          example: 89.99
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 50
+          example: 1
+      required:
+        - productId
+        - name
+        - unitPrice
+        - quantity
+    CreateOrderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: ada@example.com
+        address:
+          type: string
+          minLength: 8
+          maxLength: 300
+          example: 123 Example Street
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/CreateOrderItem"
+      required:
+        - name
+        - email
+        - address
+        - items
+    CreateOrderResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Order created successfully
+        orderId:
+          type: string
+          example: 8ec9d353-b177-4ed7-a08f-59878fdce635
+        total:
+          type: number
+          format: float
+          example: 179.98
+        status:
+          type: string
+          enum:
+            - PENDING
+      required:
+        - message
+        - orderId
+        - total
+        - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Internal Server Error
+      required:
+        - error

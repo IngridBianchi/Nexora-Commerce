@@ -1,159 +1,261 @@
-# Turborepo starter
+# Nexora Commerce
 
-This Turborepo starter is maintained by the Turborepo core team.
+Monorepo de e-commerce con frontend en Next.js, backend serverless en AWS y paquetes compartidos para UI y configuracion de desarrollo.
 
-## Using this example
+## Contenido
 
-Run the following command:
+- Vision general
+- Arquitectura del monorepo
+- Stack tecnologico
+- Requisitos
+- Instalacion
+- Configuracion de entorno
+- Ejecucion local
+- Backend: calidad, despliegue y verificacion
+- API
+- Scripts utiles
+- Seguridad y calidad
+- Troubleshooting
 
-```sh
-npx create-turbo@latest
+## Vision general
+
+Nexora Commerce implementa un flujo end-to-end de compra:
+
+- Catalogo de productos consumido desde API.
+- Carrito con estado global en frontend.
+- Checkout con validacion de datos.
+- Creacion de ordenes en backend.
+
+El repositorio esta organizado como monorepo con Turborepo para tareas de build, lint y type-check en apps y paquetes compartidos.
+
+## Arquitectura del monorepo
+
+### Aplicaciones
+
+- [apps/frontend](apps/frontend): storefront principal (catalogo, carrito, checkout).
+- [apps/web](apps/web): app Next.js adicional para web.
+- [apps/docs](apps/docs): app Next.js para documentacion.
+
+### Backend
+
+- [app/backend](app/backend): API serverless en AWS Lambda + API Gateway.
+	- Endpoints: GET /products y POST /orders.
+	- Contrato OpenAPI: [app/backend/openapi.yaml](app/backend/openapi.yaml).
+	- Capas de codigo: [app/backend/src](app/backend/src) con domain, application, infra y handlers.
+
+### Paquetes compartidos
+
+- [packages/ui](packages/ui): componentes React compartidos.
+- [packages/eslint-config](packages/eslint-config): configuraciones de lint.
+- [packages/typescript-config](packages/typescript-config): bases de TypeScript.
+
+## Stack tecnologico
+
+- Node.js + npm workspaces + Turborepo.
+- Frontend: Next.js 16, React 19, TypeScript, Zustand, UI components.
+- Backend: TypeScript, AWS Lambda, API Gateway, DynamoDB, AWS SDK v3.
+- Calidad: ESLint, TypeScript, pruebas con Node test runner.
+
+## Requisitos
+
+- Node.js >= 18.
+- npm (el proyecto declara npm 11.6.2).
+- AWS CLI configurado con credenciales validas.
+- Serverless Framework v4 (local en backend, o global opcional).
+
+## Instalacion
+
+1. Instalar dependencias del monorepo (apps y packages):
+
+```bash
+npm install
 ```
 
-## What's inside?
+2. Instalar dependencias del backend serverless (fuera de workspaces):
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+cd app/backend
+npm install
+cd ../..
 ```
 
-Without global `turbo`, use your package manager:
+## Configuracion de entorno
 
-```sh
-cd my-turborepo
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+### Frontend
+
+Crear [apps/frontend/.env.local](apps/frontend/.env.local) con:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Ejemplo en este entorno:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```env
+NEXT_PUBLIC_API_BASE_URL=https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev
 ```
 
-Without global `turbo`:
+### Backend
 
-```sh
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+Variables soportadas en [app/backend/serverless.yml](app/backend/serverless.yml):
+
+- PRODUCTS_TABLE
+- ORDERS_TABLE
+- ALLOWED_ORIGIN
+- AWS_NODEJS_CONNECTION_REUSE_ENABLED
+
+Nota: en la configuracion actual de serverless, si ORDERS_TABLE no se define, usa Products por defecto para permitir funcionamiento en entornos con tabla unica.
+
+## Ejecucion local
+
+### Frontend principal
+
+```bash
+cd apps/frontend
+npm run dev
 ```
 
-### Develop
+Abrir http://localhost:3000
 
-To develop all apps and packages, run the following command:
+### Todas las apps del monorepo
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+npm run dev
 ```
 
-Without global `turbo`, use your package manager:
+Puertos esperados:
 
-```sh
-cd my-turborepo
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+- frontend: 3000 (por defecto)
+- web: 3001
+- docs: 3002
+
+## Backend: calidad, despliegue y verificacion
+
+### Calidad local del backend
+
+```bash
+cd app/backend
+npm run check-types
+npm test
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Despliegue
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
+```bash
+cd app/backend
+npx serverless deploy --stage dev --region us-east-1
 ```
 
-Without global `turbo`:
+### Verificacion post-deploy
 
-```sh
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+Smoke test de productos:
+
+```bash
+curl "https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev/products?limit=3"
 ```
 
-### Remote Caching
+Smoke test de orden:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
+```bash
+curl -X POST "https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev/orders" \
+	-H "Content-Type: application/json" \
+	-d '{
+		"name":"QA User",
+		"email":"qa.user@example.com",
+		"address":"Calle 123",
+		"items":[{"productId":"001","name":"Remera Nexora","unitPrice":2500,"quantity":1}]
+	}'
 ```
 
-Without global `turbo`, use your package manager:
+## API
 
-```sh
-cd my-turborepo
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+Base URL:
+
+- https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev
+
+Endpoints:
+
+- GET /products?limit=100
+- POST /orders
+
+Documentacion del contrato:
+
+- [app/backend/openapi.yaml](app/backend/openapi.yaml)
+
+## Scripts utiles
+
+### Raiz del monorepo
+
+```bash
+npm run dev
+npm run build
+npm run lint
+npm run check-types
+npm run format
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### Frontend
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
+```bash
+npm run dev --workspace=frontend
+npm run build --workspace=frontend
+npm run lint --workspace=frontend
 ```
 
-Without global `turbo`:
+### Backend
 
-```sh
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+cd app/backend
+npm run check-types
+npm test
+npx serverless deploy --stage dev --region us-east-1
 ```
 
-## Useful Links
+## Seguridad y calidad
 
-Learn more about the power of Turborepo:
+Puntos implementados en el backend:
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- Validacion de payload en ordenes.
+- Respuestas HTTP consistentes.
+- Headers defensivos en respuestas.
+- Permisos IAM explicitos para DynamoDB en Lambda.
+- Tests unitarios e integracion de handlers.
+
+Archivo de referencia de mejoras:
+
+- [CORRECCIONES_SOLID_SEGURIDAD.md](CORRECCIONES_SOLID_SEGURIDAD.md)
+
+## Troubleshooting
+
+### Error EADDRINUSE en frontend
+
+El puerto 3000 ya esta ocupado. Cerrar proceso previo o usar otro puerto.
+
+```bash
+cd apps/frontend
+npm run dev -- --port 3003
+```
+
+### Lock de Next.js en .next/dev/lock
+
+Si queda un lock stale, eliminarlo y volver a iniciar.
+
+### 500 en backend
+
+Pasos recomendados:
+
+1. Revisar logs de Lambda:
+
+```bash
+cd app/backend
+npx serverless logs -f createOrder --stage dev --region us-east-1 --startTime 10m
+```
+
+2. Confirmar tablas DynamoDB y permisos IAM.
+3. Validar que NEXT_PUBLIC_API_BASE_URL apunte al stage correcto.
+
+## Estado actual
+
+- Backend desplegado y operativo en stage dev.
+- Frontend listo para consumo de API mediante NEXT_PUBLIC_API_BASE_URL.
+- Lint, build y pruebas backend ejecutadas correctamente en la ultima iteracion.

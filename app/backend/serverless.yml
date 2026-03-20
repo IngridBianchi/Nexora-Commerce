@@ -1,0 +1,54 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: ingrid1991
+service: nexora-backend
+
+custom:
+  productsTableName: ${env:PRODUCTS_TABLE, 'Products'}
+  ordersTableName: ${env:ORDERS_TABLE, 'Products'}
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Scan
+            - dynamodb:Query
+            - dynamodb:GetItem
+            - dynamodb:DescribeTable
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.productsTableName}
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:GetItem
+            - dynamodb:DescribeTable
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.ordersTableName}
+  environment:
+    PRODUCTS_TABLE: ${self:custom.productsTableName}
+    ORDERS_TABLE: ${self:custom.ordersTableName}
+    ALLOWED_ORIGIN: ${env:ALLOWED_ORIGIN, '*'}
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+
+functions:
+  getProducts:
+    handler: src/products.getProducts
+    events:
+      - http:
+          path: products
+          method: get
+          cors: true
+
+  createOrder:
+    handler: src/orders.createOrder
+    events:
+      - http:
+          path: orders
+          method: post
+          cors: true

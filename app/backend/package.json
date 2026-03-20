@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test --require ts-node/register/transpile-only tests/**/*.test.ts",
+    "test:watch": "node --test --watch --require ts-node/register/transpile-only tests/**/*.test.ts",
+    "check-types": "tsc -p tsconfig.json --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^25.5.0",
+    "@types/uuid": "^10.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1012.0",
+    "@aws-sdk/client-s3": "^3.1012.0",
+    "@aws-sdk/lib-dynamodb": "^3.1012.0",
+    "serverless": "^4.33.0",
+    "uuid": "^13.0.0"
+  }
+}

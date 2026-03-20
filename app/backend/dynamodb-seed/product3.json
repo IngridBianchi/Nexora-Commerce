@@ -1,0 +1,8 @@
+{
+  "PK": {"S": "PRODUCT#003"},
+  "SK": {"S": "DETAILS"},
+  "name": {"S": "Gorra Nexora"},
+  "price": {"N": "1800"},
+  "description": {"S": "Gorra negra ajustable con logo Nexora"},
+  "stock": {"N": "30"}
+}

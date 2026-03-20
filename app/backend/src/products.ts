@@ -1,0 +1,1 @@
+export { getProductsHandler as getProducts } from "./handlers/get-products-handler"
