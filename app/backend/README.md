@@ -4,7 +4,7 @@ API serverless para el e-commerce Nexora. Expone endpoints de productos y ordene
 
 ## Contenido
 
-- Arquitectura
+- Arquitectura.
 - Stack
 - Estructura de carpetas
 - Requisitos
