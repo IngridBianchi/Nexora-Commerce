@@ -5,18 +5,18 @@ API serverless para el e-commerce Nexora. Expone endpoints de productos y ordene
 ## Contenido
 
 - Arquitectura.
-- Stack
-- Estructura de carpetas
-- Requisitos
-- Instalacion
-- Variables de entorno
-- Ejecucion local (dev)
-- Calidad: tipos y pruebas
-- Despliegue
-- Verificacion post-deploy
-- API: endpoints y contrato
-- Seed de datos
-- Troubleshooting
+- Stack.
+- Estructura de carpetas.
+- Requisitos.
+- Instalacion.
+- Variables de entorno.
+- Ejecucion local (dev).
+- Calidad: tipos y pruebas.
+- Despliegue.
+- Verificacion post-deploy.
+- API: endpoints y contrato.
+- Seed de datos.
+- Troubleshooting.
 
 ---
 
