@@ -6,12 +6,25 @@ import { APIGatewayProxyEvent } from "aws-lambda"
 import { buildCreateOrderHandler } from "../src/handlers/create-order-handler"
 import { CreateOrderService } from "../src/application/services/create-order-service"
 import { OrderRecord } from "../src/domain/order"
+import { ProductCatalogReader, ProductForOrder } from "../src/application/ports/product-catalog-reader"
 
 class InMemoryOrderWriter {
   public readonly createdOrders: OrderRecord[] = []
 
-  async create(order: OrderRecord): Promise<void> {
+  async create(
+    order: OrderRecord,
+    _stockReservations: Array<{ productId: string; quantity: number }>
+  ): Promise<void> {
     this.createdOrders.push(order)
+  }
+}
+
+class InMemoryProductCatalogReader implements ProductCatalogReader {
+  constructor(private readonly products: ProductForOrder[]) {}
+
+  async getProductsByIds(ids: string[]): Promise<ProductForOrder[]> {
+    const idSet = new Set(ids)
+    return this.products.filter((product) => idSet.has(product.id))
   }
 }
 
@@ -34,7 +47,10 @@ function buildEvent(body: string | null): APIGatewayProxyEvent {
 
 test("create-order handler returns 201 and persists normalized order", async () => {
   const writer = new InMemoryOrderWriter()
-  const service = new CreateOrderService(writer, () => new Date("2026-01-01T00:00:00.000Z"))
+  const catalog = new InMemoryProductCatalogReader([
+    { id: "keyboard", name: "Keyboard", price: 25, stock: 10 }
+  ])
+  const service = new CreateOrderService(writer, catalog, () => new Date("2026-01-01T00:00:00.000Z"))
   const handler = buildCreateOrderHandler({
     createOrderService: service,
     allowedOrigin: "https://frontend.example.com"
@@ -49,8 +65,6 @@ test("create-order handler returns 201 and persists normalized order", async () 
         items: [
           {
             productId: "keyboard",
-            name: "Keyboard",
-            unitPrice: 25,
             quantity: 2
           }
         ]
@@ -131,8 +145,6 @@ test("create-order handler returns 500 when service fails", async () => {
         items: [
           {
             productId: "keyboard",
-            name: "Keyboard",
-            unitPrice: 25,
             quantity: 1
           }
         ]

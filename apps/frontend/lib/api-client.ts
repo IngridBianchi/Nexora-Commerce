@@ -11,6 +11,17 @@ interface CreateOrderResponse {
   status: string
 }
 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly detail?: string
+  ) {
+    super(message)
+    this.name = "ApiError"
+  }
+}
+
 const DEFAULT_API_BASE_URL = "http://localhost:3000/dev"
 
 function getApiBaseUrl(): string {
@@ -38,10 +49,34 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     })
 
     if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`)
+      const rawBody = await response.text()
+      let errorMessage = `Request failed with status ${response.status}`
+
+      if (rawBody) {
+        try {
+          const parsed = JSON.parse(rawBody) as { error?: string }
+          if (typeof parsed.error === "string" && parsed.error.trim().length > 0) {
+            errorMessage = parsed.error
+          }
+        } catch {
+          // Keep generic status message when body is not JSON.
+        }
+      }
+
+      throw new ApiError(response.status, errorMessage, rawBody)
     }
 
     return (await response.json()) as T
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error
+    }
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new ApiError(408, "Request timeout")
+    }
+
+    throw new ApiError(0, "Network error")
   } finally {
     clearTimeout(timeoutId)
   }

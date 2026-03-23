@@ -1,6 +1,7 @@
-import { ScanCommand } from "@aws-sdk/lib-dynamodb"
+import { BatchGetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb"
 import { Product } from "../../domain/product"
 import { ProductReader } from "../../application/ports/product-reader"
+import { ProductCatalogReader, ProductForOrder } from "../../application/ports/product-catalog-reader"
 import { db } from "../db/client"
 
 function toPositiveNumber(value: unknown): number | null {
@@ -69,8 +70,61 @@ function toProduct(item: unknown): Product | null {
   }
 }
 
-export class DynamoDbProductRepository implements ProductReader {
+export class DynamoDbProductRepository implements ProductReader, ProductCatalogReader {
   constructor(private readonly tableName: string) {}
+
+  async getProductsByIds(ids: string[]): Promise<ProductForOrder[]> {
+    const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter((id) => id.length > 0)))
+    if (uniqueIds.length === 0) {
+      return []
+    }
+
+    const response = await db.send(
+      new BatchGetCommand({
+        RequestItems: {
+          [this.tableName]: {
+            Keys: uniqueIds.map((id) => ({
+              PK: `PRODUCT#${id}`,
+              SK: "DETAILS"
+            }))
+          }
+        }
+      })
+    )
+
+    const rawItems = response.Responses?.[this.tableName]
+    if (!rawItems || rawItems.length === 0) {
+      return []
+    }
+
+    return rawItems
+      .map((item): ProductForOrder | null => {
+        const product = toProduct(item)
+        if (!product) {
+          return null
+        }
+
+        const stockRaw = (item as Record<string, unknown>).stock
+        const stock =
+          typeof stockRaw === "number"
+            ? stockRaw
+            : typeof stockRaw === "string"
+              ? Number.parseInt(stockRaw, 10)
+              : Number.NaN
+
+        if (!Number.isInteger(stock) || stock < 0) {
+          return null
+        }
+
+        return {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          stock
+        }
+      })
+      .filter((product): product is ProductForOrder => product !== null)
+  }
 
   async listProducts(limit: number): Promise<Product[]> {
     const result = await db.send(

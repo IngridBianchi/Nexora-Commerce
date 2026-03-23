@@ -41,6 +41,10 @@ export function unprocessableEntity(message: string, origin: string): APIGateway
   return jsonResponse(422, { error: message }, origin)
 }
 
+export function conflict(message: string, origin: string): APIGatewayProxyResult {
+  return jsonResponse(409, { error: message }, origin)
+}
+
 export function internalServerError(origin: string): APIGatewayProxyResult {
   return jsonResponse(500, { error: "Internal Server Error" }, origin)
 }

@@ -146,6 +146,20 @@ cd app/backend
 npx serverless deploy --stage dev --region us-east-1
 ```
 
+### GitHub Actions: secrets requeridos para deploy backend
+
+Para habilitar el workflow de despliegue en GitHub Actions, crear estos secrets a nivel de repositorio:
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `SERVERLESS_ACCESS_KEY`
+
+Ruta en GitHub:
+
+- Settings -> Secrets and variables -> Actions -> New repository secret
+
+El workflow de deploy valida estos tres secrets al inicio y falla con mensaje explicito si falta alguno.
+
 ### Verificacion post-deploy
 
 Smoke test de productos:
@@ -220,10 +234,6 @@ Puntos implementados en el backend:
 - Headers defensivos en respuestas.
 - Permisos IAM explicitos para DynamoDB en Lambda.
 - Tests unitarios e integracion de handlers.
-
-Archivo de referencia de mejoras:
-
-- [CORRECCIONES_SOLID_SEGURIDAD.md](CORRECCIONES_SOLID_SEGURIDAD.md)
 
 ## Troubleshooting
 

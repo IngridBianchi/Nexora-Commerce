@@ -1,21 +1,26 @@
 "use client"
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardHeader, CardTitle, CardContent } from "@repo/ui/card"
+import { Button } from "@repo/ui/button"
+import { Input } from "@repo/ui/input"
 import Image from "next/image"
 import { useCartStore } from "@/store/cart"
 import { ChangeEvent, useEffect, useMemo, useState } from "react"
 import { productsCatalog } from "@/lib/products"
-import { validateCheckoutData } from "@/lib/checkout-validation"
+import { normalizeCheckoutFormData, validateCheckoutData } from "@/lib/checkout-validation"
 import { CheckoutFormData, Product } from "@/lib/types"
-import { createOrder, getProducts } from "@/lib/api-client"
+import { ApiError, createOrder, getProducts } from "@/lib/api-client"
 
 const initialFormData: CheckoutFormData = {
   name: "",
   email: "",
   address: ""
 }
+
+type CheckoutNotice = {
+  type: "success" | "error" | "info"
+  message: string
+} | null
 
 export default function Home() {
   const cartItems = useCartStore((state) => state.items)
@@ -34,6 +39,7 @@ export default function Home() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [formData, setFormData] = useState<CheckoutFormData>(initialFormData)
+  const [checkoutNotice, setCheckoutNotice] = useState<CheckoutNotice>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -45,18 +51,28 @@ export default function Home() {
           return
         }
 
-        if (remoteProducts.length > 0) {
-          setProducts(remoteProducts)
-          setProductsError(null)
-        } else {
-          setProductsError("El backend no devolvio productos, se usa el catalogo local")
-        }
-      } catch {
+        setProducts(remoteProducts)
+        setProductsError(
+          remoteProducts.length === 0
+            ? "El catalogo remoto esta vacio"
+            : null
+        )
+      } catch (error) {
         if (!isMounted) {
           return
         }
 
-        setProductsError("No se pudo conectar con el backend, se usa el catalogo local")
+        setProducts(productsCatalog)
+
+        if (error instanceof ApiError) {
+          if (error.status === 408 || error.status === 0) {
+            setProductsError("No se pudo conectar con el backend, se usa el catalogo local")
+          } else {
+            setProductsError(`Backend respondio error ${error.status}, se usa el catalogo local`)
+          }
+        } else {
+          setProductsError("No se pudo cargar el catalogo remoto, se usa el catalogo local")
+        }
       } finally {
         if (isMounted) {
           setIsLoadingProducts(false)
@@ -84,39 +100,52 @@ export default function Home() {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
+    if (checkoutNotice) {
+      setCheckoutNotice(null)
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleCheckout = async () => {
-    const validationError = validateCheckoutData(formData, itemsCount)
+    const normalizedFormData = normalizeCheckoutFormData(formData)
+    const validationError = validateCheckoutData(normalizedFormData, itemsCount)
     if (validationError) {
-      alert(validationError)
+      setCheckoutNotice({ type: "error", message: validationError })
       return
     }
 
+    setCheckoutNotice(null)
     setIsSubmittingOrder(true)
     try {
       const response = await createOrder({
-        name: formData.name.trim(),
-        email: formData.email.trim().toLowerCase(),
-        address: formData.address.trim(),
+        name: normalizedFormData.name,
+        email: normalizedFormData.email,
+        address: normalizedFormData.address,
         items: cartItems.map((item) => ({
           productId: item.id,
-          name: item.name,
-          unitPrice: item.price,
           quantity: item.quantity
         }))
       })
 
-      alert(
-        `Orden ${response.orderId} creada para ${formData.name.trim()}.\nTotal: $${response.total.toFixed(
-          2
-        )}`
-      )
+      setCheckoutNotice({
+        type: "success",
+        message: `Orden ${response.orderId} creada con exito. Total: $${response.total.toFixed(2)}`
+      })
       clearCart()
       setFormData(initialFormData)
-    } catch {
-      alert("No se pudo crear la orden. Intenta nuevamente en unos segundos.")
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const message =
+          error.status > 0
+            ? `No se pudo crear la orden (${error.status}): ${error.message}`
+            : "No se pudo crear la orden por error de red"
+        setCheckoutNotice({ type: "error", message })
+      } else {
+        setCheckoutNotice({
+          type: "error",
+          message: "No se pudo crear la orden. Intenta nuevamente en unos segundos."
+        })
+      }
     } finally {
       setIsSubmittingOrder(false)
     }
@@ -173,6 +202,22 @@ export default function Home() {
       {cartItems.length > 0 && (
         <div className="mb-6 border p-4 rounded bg-white shadow">
           <h2 className="text-xl font-semibold mb-4">Finalizar compra</h2>
+
+          {checkoutNotice && (
+            <div
+              className={`mb-4 rounded border px-3 py-2 text-sm ${
+                checkoutNotice.type === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : checkoutNotice.type === "error"
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-blue-200 bg-blue-50 text-blue-800"
+              }`}
+              role={checkoutNotice.type === "error" ? "alert" : "status"}
+            >
+              {checkoutNotice.message}
+            </div>
+          )}
+
           <div className="space-y-4">
             <Input
               name="name"

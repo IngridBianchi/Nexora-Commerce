@@ -1,6 +1,6 @@
 # Docs App - Nexora Commerce
 
-Aplicacion de documentacion del monorepo, basada en Next.js y preparada para evolucionar guias tecnicas y funcionales del proyecto.
+Aplicacion Next.js destinada al portal de documentacion de Nexora Commerce. Su objetivo es centralizar guias tecnicas, contratos API, decisiones arquitectonicas, runbooks operativos y onboarding del equipo.
 
 ## Stack
 
@@ -8,6 +8,12 @@ Aplicacion de documentacion del monorepo, basada en Next.js y preparada para evo
 - React 19
 - TypeScript
 - Configuraciones compartidas de eslint y tsconfig
+
+## Objetivo funcional
+
+- Publicar documentacion tecnica y funcional versionada junto al codigo.
+- Consolidar manuales de operacion, integracion y despliegue.
+- Reducir conocimiento tribal dejando el contexto del monorepo accesible para desarrollo y operaciones.
 
 ## Scripts
 

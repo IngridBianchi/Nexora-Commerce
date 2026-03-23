@@ -12,8 +12,6 @@ test("validateCreateOrderInput returns normalized value for valid payload", () =
     items: [
       {
         id: "product-1",
-        name: "Keyboard",
-        price: 55.5,
         quantity: 2
       }
     ]
@@ -27,7 +25,7 @@ test("validateCreateOrderInput returns normalized value for valid payload", () =
   assert.equal(result.value.name, "Ada Lovelace")
   assert.equal(result.value.email, "ada@example.com")
   assert.equal(result.value.items[0].productId, "product-1")
-  assert.equal(result.value.items[0].unitPrice, 55.5)
+  assert.equal(result.value.items[0].quantity, 2)
 })
 
 test("validateCreateOrderInput rejects invalid email", () => {
@@ -38,8 +36,6 @@ test("validateCreateOrderInput rejects invalid email", () => {
     items: [
       {
         productId: "product-1",
-        name: "Keyboard",
-        unitPrice: 25,
         quantity: 1
       }
     ]
@@ -61,8 +57,6 @@ test("validateCreateOrderInput rejects out-of-range quantities", () => {
     items: [
       {
         productId: "product-1",
-        name: "Keyboard",
-        unitPrice: 25,
         quantity: 100
       }
     ]

@@ -3,6 +3,7 @@ import { env } from "../config/env"
 import { ListProductsService } from "../application/services/list-products-service"
 import { DynamoDbProductRepository } from "../infra/repositories/dynamodb-product-repository"
 import { badRequest, internalServerError, ok } from "../shared/http"
+import { emitMetric, logError, logInfo } from "../shared/observability"
 
 interface ListProductsServicePort {
   execute(limit?: number): Promise<unknown[]>
@@ -30,9 +31,25 @@ export function buildGetProductsHandler(dependencies?: {
 
     try {
       const products = await listProductsService.execute(limit)
+      emitMetric("ProductsListed", 1, {
+        Function: "getProducts",
+        Status: "Success"
+      })
+      logInfo("Products listed", {
+        requestId: event.requestContext?.requestId,
+        count: products.length,
+        limit: limit ?? null
+      })
       return ok({ data: products }, allowedOrigin)
     } catch (error) {
-      console.error("getProductsHandler failed", {
+      emitMetric("ProductsListed", 1, {
+        Function: "getProducts",
+        Status: "Error"
+      })
+      emitMetric("BackendErrors", 1, {
+        Function: "getProducts"
+      })
+      logError("getProductsHandler failed", {
         message: error instanceof Error ? error.message : "Unknown error"
       })
       return internalServerError(allowedOrigin)

@@ -1,4 +1,4 @@
-import { CreateOrderInput, OrderItem } from "../../domain/order"
+import { CreateOrderInput, CreateOrderItemInput } from "../../domain/order"
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -31,28 +31,17 @@ function readNonEmptyString(
   return { success: true, value: normalized }
 }
 
-function toOrderItem(rawItem: unknown, index: number): ValidationResult<OrderItem> {
+function toOrderItem(rawItem: unknown, index: number): ValidationResult<CreateOrderItemInput> {
   if (!isRecord(rawItem)) {
     return { success: false, error: `items[${index}] must be an object` }
   }
 
   const productIdRaw = rawItem.productId ?? rawItem.id
-  const nameRaw = rawItem.name
-  const unitPriceRaw = rawItem.unitPrice ?? rawItem.price
   const quantityRaw = rawItem.quantity ?? 1
 
   const productId = readNonEmptyString(productIdRaw, `items[${index}].productId`, 1, 64)
   if (!productId.success) {
     return productId
-  }
-
-  const name = readNonEmptyString(nameRaw, `items[${index}].name`, 1, 120)
-  if (!name.success) {
-    return name
-  }
-
-  if (typeof unitPriceRaw !== "number" || Number.isNaN(unitPriceRaw) || unitPriceRaw <= 0) {
-    return { success: false, error: `items[${index}].unitPrice must be a positive number` }
   }
 
   if (
@@ -68,8 +57,6 @@ function toOrderItem(rawItem: unknown, index: number): ValidationResult<OrderIte
     success: true,
     value: {
       productId: productId.value,
-      name: name.value,
-      unitPrice: Number(unitPriceRaw.toFixed(2)),
       quantity: quantityRaw
     }
   }
@@ -107,7 +94,7 @@ export function validateCreateOrderInput(rawBody: unknown): ValidationResult<Cre
     return { success: false, error: "items length must be between 1 and 100" }
   }
 
-  const normalizedItems: OrderItem[] = []
+  const normalizedItems: CreateOrderItemInput[] = []
   for (let index = 0; index < rawBody.items.length; index += 1) {
     const parsedItem = toOrderItem(rawBody.items[index], index)
     if (!parsedItem.success) {

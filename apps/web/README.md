@@ -1,6 +1,6 @@
 # Web App - Nexora Commerce
 
-Aplicacion secundaria Next.js del monorepo, orientada a experiencias web adicionales y consumo de componentes compartidos.
+Aplicacion Next.js reservada para la futura consola operativa de Nexora Commerce. Su objetivo es alojar flujos internos como panel administrativo, revision de ordenes, metricas comerciales y herramientas de soporte, separados de la storefront publica.
 
 ## Stack
 
@@ -8,6 +8,12 @@ Aplicacion secundaria Next.js del monorepo, orientada a experiencias web adicion
 - React 19
 - TypeScript
 - Paquete compartido @repo/ui
+
+## Objetivo funcional
+
+- Desacoplar la experiencia publica de compra de los flujos internos del negocio.
+- Servir como base para dashboard operativo, gestion de catalogo y monitoreo comercial.
+- Reutilizar configuraciones y componentes compartidos del monorepo sin mezclar concerns con `apps/frontend`.
 
 ## Scripts
 

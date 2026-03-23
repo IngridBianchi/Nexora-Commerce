@@ -6,6 +6,32 @@ function normalizedLength(value: string): number {
   return value.trim().length
 }
 
+function stripControlChars(value: string): string {
+  let sanitized = ""
+
+  for (const char of value) {
+    const charCode = char.charCodeAt(0)
+
+    if (charCode >= 32 && charCode !== 127) {
+      sanitized += char
+    }
+  }
+
+  return sanitized
+}
+
+function sanitizeText(value: string): string {
+  return stripControlChars(value).trim()
+}
+
+export function normalizeCheckoutFormData(formData: CheckoutFormData): CheckoutFormData {
+  return {
+    name: sanitizeText(formData.name),
+    email: sanitizeText(formData.email).toLowerCase(),
+    address: sanitizeText(formData.address)
+  }
+}
+
 export function validateCheckoutData(
   formData: CheckoutFormData,
   totalItems: number

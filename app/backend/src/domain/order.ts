@@ -1,3 +1,8 @@
+export interface CreateOrderItemInput {
+  productId: string
+  quantity: number
+}
+
 export interface OrderItem {
   productId: string
   name: string
@@ -9,7 +14,7 @@ export interface CreateOrderInput {
   name: string
   email: string
   address: string
-  items: OrderItem[]
+  items: CreateOrderItemInput[]
 }
 
 export interface OrderRecord extends CreateOrderInput {

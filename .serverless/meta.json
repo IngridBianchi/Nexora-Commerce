@@ -1,0 +1,27 @@
+{
+  "unknown": {
+    "versionFramework": "4.33.0",
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "command": [
+      "login"
+    ],
+    "options": {},
+    "orgId": "7b2edb36-ac17-4d9a-ad2a-59bf8af5dcf0",
+    "orgName": "ingrid1991",
+    "userId": "TPhnFfxQZnVBmwNFFp",
+    "userName": "ingrid1991",
+    "serviceProviderAwsCfStackId": null,
+    "serviceProviderAwsCfStackCreated": null,
+    "serviceProviderAwsCfStackUpdated": null,
+    "serviceProviderAwsCfStackStatus": null,
+    "serviceProviderAwsCfStackOutputs": null
+  }
+}

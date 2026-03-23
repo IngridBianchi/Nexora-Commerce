@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node --test --require ts-node/register/transpile-only tests/**/*.test.ts",
     "test:watch": "node --test --watch --require ts-node/register/transpile-only tests/**/*.test.ts",
-    "check-types": "tsc -p tsconfig.json --noEmit"
+    "check-types": "tsc -p tsconfig.json --noEmit",
+    "test:load": "k6 run tests/performance/load.k6.js",
+    "test:resilience": "k6 run tests/performance/resilience.k6.js"
   },
   "keywords": [],
   "author": "",

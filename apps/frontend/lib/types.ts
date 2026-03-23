@@ -22,8 +22,6 @@ export interface OrderRequest {
   address: string
   items: Array<{
     productId: string
-    name: string
-    unitPrice: number
     quantity: number
   }>
 }
