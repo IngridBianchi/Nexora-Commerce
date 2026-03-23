@@ -18,10 +18,10 @@ jobs:
       SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.1.7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.0.2
         with:
           node-version: 20
           cache: npm
@@ -30,21 +30,16 @@ jobs:
         run: npm ci
         working-directory: app/backend
 
-      - name: Validate required secrets
+      - name: Validate secrets exist
         run: |
-          missing=0
-          for secret_name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY SERVERLESS_ACCESS_KEY; do
-            if [ -z "${!secret_name}" ]; then
-              echo "::error::Missing required secret: ${secret_name}"
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
+          if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$SERVERLESS_ACCESS_KEY" ]]; then
+            echo "::error::Missing required GitHub secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, SERVERLESS_ACCESS_KEY"
+            echo "Create them at: Settings -> Secrets and variables -> Actions -> New repository secret"
             exit 1
           fi
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v4.0.2
         with:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
