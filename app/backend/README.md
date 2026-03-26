@@ -157,8 +157,11 @@ El despliegue actualiza:
 - Las funciones Lambda (`getProducts`, `createOrder`).
 - Los permisos IAM del rol de ejecucion Lambda sobre DynamoDB.
 - La configuracion de API Gateway con CORS habilitado.
+- Las alarmas CloudWatch de errores (`getProducts` y `createOrder`).
 
 > **Requisito de permisos:** el usuario AWS de despliegue debe tener permisos de CloudFormation, Lambda, API Gateway e IAM. En este entorno no tiene permisos de `dynamodb:TagResource`, por lo que las tablas DynamoDB **no se crean desde serverless**: deben existir previamente.
+
+> **Nota sobre CloudWatch alarms:** el usuario AWS de despliegue debe tener permiso `cloudwatch:PutMetricAlarm` para crear/actualizar alarmas durante `serverless deploy`.
 
 ---
 

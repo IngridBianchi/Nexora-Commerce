@@ -22,8 +22,11 @@ Monorepo de e-commerce con frontend en Next.js, backend serverless en AWS y paqu
 Nexora Commerce implementa un flujo end-to-end de compra:
 
 - Catalogo de productos consumido desde API.
-- Carrito con estado global en frontend.
-- Checkout con validacion de datos.
+- Filtro en vivo de catalogo por texto, categoria y rango de precio.
+- Manejo visual de stock agotado y bloqueo de compra sin stock.
+- Carrito con estado global y persistencia local en frontend.
+- Checkout con validacion de datos y estados UX claros (loading/success/error/retry).
+- Borrador de checkout persistido en navegador con expiracion segura.
 - Creacion de ordenes en backend.
 
 El repositorio esta organizado como monorepo con Turborepo para tareas de build, lint y type-check en apps y paquetes compartidos.
@@ -105,6 +108,8 @@ Variables soportadas en [app/backend/serverless.yml](app/backend/serverless.yml)
 - AWS_NODEJS_CONNECTION_REUSE_ENABLED
 
 Nota: en la configuracion actual de serverless, si ORDERS_TABLE no se define, usa Products por defecto para permitir funcionamiento en entornos con tabla unica.
+
+El despliegue crea alarmas CloudWatch por defecto, por lo que el usuario IAM de despliegue debe tener permiso `cloudwatch:PutMetricAlarm`.
 
 ## Ejecucion local
 

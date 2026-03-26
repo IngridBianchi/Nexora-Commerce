@@ -90,12 +90,21 @@ export async function getProducts(): Promise<Product[]> {
   }
 
   return payload.data.filter((product): product is Product => {
+    const hasValidCategory =
+      typeof product.category === "undefined" || typeof product.category === "string"
+
+    const hasValidStock =
+      typeof product.stock === "undefined" ||
+      (typeof product.stock === "number" && Number.isInteger(product.stock) && product.stock >= 0)
+
     return (
       typeof product.id === "string" &&
       typeof product.name === "string" &&
       typeof product.description === "string" &&
       typeof product.price === "number" &&
-      typeof product.imageUrl === "string"
+      typeof product.imageUrl === "string" &&
+      hasValidCategory &&
+      hasValidStock
     )
   })
 }

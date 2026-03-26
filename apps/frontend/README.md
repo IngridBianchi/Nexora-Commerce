@@ -49,12 +49,14 @@ apps/frontend/
       input.tsx       Componente Input
   lib/
     api-client.ts     Cliente HTTP para GET /products y POST /orders
+    catalog-filters.ts Reglas de filtros combinados de catalogo
+    checkout-draft.ts Persistencia segura del borrador de checkout (LocalStorage con TTL)
     checkout-validation.ts  Validacion de datos de checkout en cliente
     products.ts       Catalogo local de fallback
     types.ts          Interfaces TypeScript del dominio (Product, CartItem, OrderRequest...)
     utils.ts          Helper cn() para merging de clases Tailwind
   store/
-    cart.ts           Store Zustand: items, addItem, removeItem, clearCart, getTotal, getItemsCount
+    cart.ts           Store Zustand con persistencia segura de carrito en LocalStorage
   .env.local          Variable de entorno local (no versionada)
   components.json     Configuracion de shadcn/ui
   postcss.config.mjs  Plugin @tailwindcss/postcss
@@ -107,10 +109,47 @@ npm run lint     # Lint con ESLint
 
 1. Al iniciar, `page.tsx` llama a `GET /products` via `lib/api-client.ts`.
 2. Si el backend responde, muestra el catalogo remoto. Si falla, usa el catalogo local con aviso.
-3. El usuario agrega productos al carrito (Zustand: `addItem` incrementa cantidad si el item ya existe).
-4. Al ingresar nombre, email y direccion, se valida en cliente con `lib/checkout-validation.ts`.
-5. Al confirmar, se envia `POST /orders` con los items del carrito.
-6. Si la orden es exitosa, se muestra el `orderId` y el carrito se limpia.
+3. El usuario filtra catalogo en vivo por texto, categoria y rango de precio.
+4. La UI oculta productos agotados por defecto y permite incluirlos con un toggle.
+5. El usuario agrega productos al carrito (Zustand: `addItem` incrementa cantidad si el item ya existe).
+4. El carrito se restaura automaticamente desde LocalStorage al cargar la app (hidratacion segura).
+5. Al ingresar nombre, email y direccion, se valida en cliente con `lib/checkout-validation.ts`.
+6. El formulario de checkout se guarda como borrador en LocalStorage y expira luego de 30 minutos.
+7. Al confirmar, el checkout muestra estados UX claros: `loading`, `success`, `error` y opcion de `retry`.
+8. Al confirmar, se envia `POST /orders` con los items del carrito.
+9. Si la orden es exitosa, se muestra el `orderId`, se limpia el carrito y se elimina el borrador guardado.
+
+## Filtro en vivo de catalogo
+
+- Filtros combinados: texto + categoria + precio minimo + precio maximo.
+- Boton de limpiar filtros para volver al estado base.
+- "Incluir productos agotados" como toggle opcional.
+- Las reglas de filtrado estan desacopladas en `lib/catalog-filters.ts` y cubiertas por pruebas unitarias.
+
+## Stock agotado en UI
+
+- Badge "Agotado" cuando `stock <= 0`.
+- Boton de compra deshabilitado para productos sin stock.
+- Limite de compra por producto cuando se alcanza el stock disponible.
+
+## Estados UX de checkout
+
+- `loading`: feedback visual con mensaje de procesamiento y estado activo.
+- `success`: confirmacion clara con `orderId` y total final.
+- `error`: mensaje de fallo legible con causa (API o red).
+- `retry`: boton de reintento que reutiliza el ultimo payload valido del checkout.
+
+## Persistencia local segura
+
+- Carrito:
+  - Key: `nexora-cart`
+  - Mecanismo: Zustand `persist` con `skipHydration` + rehidratacion explicita.
+  - Seguridad: sanitizacion de items persistidos antes de usarlos.
+
+- Borrador checkout:
+  - Key: `nexora-checkout-draft`
+  - TTL: 30 minutos (`CHECKOUT_DRAFT_TTL_MS`).
+  - Seguridad: parseo seguro, validacion de schema y limpieza automatica ante datos corruptos o expirados.
 
 ---
 
