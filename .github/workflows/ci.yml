@@ -38,11 +38,18 @@ jobs:
         run: npm test
         working-directory: app/backend
 
+      - name: Backend payment consistency suite
+        run: npm run test:payments-consistency
+        working-directory: app/backend
+
       - name: Build frontend
         run: npm run build --workspace=frontend
 
       - name: Frontend unit tests
         run: npm run test:unit --workspace=frontend
+
+      - name: Frontend coverage thresholds
+        run: npm run test:coverage --workspace=frontend
 
       - name: Install Playwright browsers
         working-directory: apps/frontend
@@ -50,3 +57,61 @@ jobs:
 
       - name: Frontend E2E tests
         run: npm run test:e2e --workspace=frontend
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: app/backend
+
+      - name: Audit root dependencies
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: Audit backend dependencies
+        run: npm audit --audit-level=high --omit=dev
+        working-directory: app/backend
+
+      - name: Secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build --workspace=frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev
+
+      - name: Run Lighthouse CI
+        run: npx @lhci/cli@0.14.x autorun
+        working-directory: apps/frontend
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

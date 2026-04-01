@@ -1,9 +1,10 @@
-import { TransactWriteCommand } from "@aws-sdk/lib-dynamodb"
-import { OrderRecord } from "../../domain/order"
+import { QueryCommand, TransactWriteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb"
+import { OrderRecord, OrderStatus } from "../../domain/order"
+import { OrderStatusUpdater } from "../../application/ports/order-status-updater"
 import { OrderWriter } from "../../application/ports/order-writer"
 import { db } from "../db/client"
 
-export class DynamoDbOrderRepository implements OrderWriter {
+export class DynamoDbOrderRepository implements OrderWriter, OrderStatusUpdater {
   constructor(
     private readonly tableName: string,
     private readonly productsTableName: string
@@ -46,5 +47,48 @@ export class DynamoDbOrderRepository implements OrderWriter {
         ]
       })
     )
+  }
+
+  async updateStatusByOrderId(orderId: string, status: OrderStatus): Promise<"UPDATED" | "UNCHANGED" | "NOT_FOUND"> {
+    const pk = `ORDER#${orderId}`
+
+    const queryResult = await db.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: "PK = :pk",
+        ExpressionAttributeValues: {
+          ":pk": pk
+        },
+        Limit: 1
+      })
+    )
+
+    const orderItem = queryResult.Items?.[0]
+    if (!orderItem || typeof orderItem.SK !== "string") {
+      return "NOT_FOUND"
+    }
+
+    if (orderItem.status === status) {
+      return "UNCHANGED"
+    }
+
+    await db.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: pk,
+          SK: orderItem.SK
+        },
+        UpdateExpression: "SET #status = :status",
+        ExpressionAttributeNames: {
+          "#status": "status"
+        },
+        ExpressionAttributeValues: {
+          ":status": status
+        }
+      })
+    )
+
+    return "UPDATED"
   }
 }

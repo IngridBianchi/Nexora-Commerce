@@ -16,6 +16,9 @@
   "engines": {
     "node": ">=18"
   },
+  "overrides": {
+    "esbuild": "^0.25.11"
+  },
   "packageManager": "npm@11.6.2",
   "workspaces": [
     "apps/*",

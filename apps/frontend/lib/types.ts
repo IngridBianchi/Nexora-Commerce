@@ -27,3 +27,15 @@ export interface OrderRequest {
     quantity: number
   }>
 }
+
+export interface CheckoutSessionRequest {
+  orderId: string
+  successUrl: string
+  cancelUrl: string
+  email?: string
+  items: Array<{
+    name: string
+    unitPrice: number
+    quantity: number
+  }>
+}

@@ -1,14 +1,21 @@
-import { OrderRequest, Product } from "./types"
+import { CheckoutSessionRequest, OrderRequest, Product } from "./types"
 
 interface ProductsResponse {
   data?: Product[]
 }
 
-interface CreateOrderResponse {
+export interface CreateOrderResponse {
   message: string
   orderId: string
   total: number
   status: string
+}
+
+interface CreateCheckoutSessionResponse {
+  message: string
+  orderId: string
+  sessionId: string
+  sessionUrl: string
 }
 
 export class ApiError extends Error {
@@ -22,7 +29,7 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_API_BASE_URL = "http://localhost:3000/dev"
+const DEFAULT_API_BASE_URL = "http://localhost:3000/dev/v1"
 
 function getApiBaseUrl(): string {
   const value = process.env.NEXT_PUBLIC_API_BASE_URL?.trim()
@@ -83,7 +90,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getProducts(): Promise<Product[]> {
-  const payload = await fetchJson<ProductsResponse>(`${getApiBaseUrl()}/products?limit=100`)
+  const payload = await fetchJson<ProductsResponse>(`${getApiBaseUrl()}/v1/products?limit=100`)
 
   if (!Array.isArray(payload.data)) {
     return []
@@ -110,8 +117,21 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function createOrder(payload: OrderRequest): Promise<CreateOrderResponse> {
-  return fetchJson<CreateOrderResponse>(`${getApiBaseUrl()}/orders`, {
+  return fetchJson<CreateOrderResponse>(`${getApiBaseUrl()}/v1/orders`, {
     method: "POST",
+    body: JSON.stringify(payload)
+  })
+}
+
+export async function createCheckoutSession(
+  payload: CheckoutSessionRequest,
+  idempotencyKey: string
+): Promise<CreateCheckoutSessionResponse> {
+  return fetchJson<CreateCheckoutSessionResponse>(`${getApiBaseUrl()}/v1/checkout/session`, {
+    method: "POST",
+    headers: {
+      "Idempotency-Key": idempotencyKey
+    },
     body: JSON.stringify(payload)
   })
 }

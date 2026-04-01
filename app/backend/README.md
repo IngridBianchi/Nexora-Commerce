@@ -1,6 +1,6 @@
 # Backend - Nexora Commerce
 
-API serverless para el e-commerce Nexora. Expone endpoints de productos y ordenes sobre AWS Lambda + API Gateway, con persistencia en DynamoDB.
+API serverless para el e-commerce Nexora. Expone endpoints de productos, ordenes y pagos sobre AWS Lambda + API Gateway, con persistencia en DynamoDB e integracion con Stripe Checkout.
 
 ## Contenido
 
@@ -26,15 +26,16 @@ El backend sigue una arquitectura en capas basada en principios SOLID:
 
 ```
 src/
-  domain/         Entidades e interfaces de negocio (Product, Order)
+  domain/         Entidades e interfaces de negocio (Product, Order, OrderStatus)
   application/
-    ports/        Interfaces de entrada/salida (ProductReader, OrderWriter)
+    ports/        Interfaces de entrada/salida (ProductReader, OrderWriter, OrderStatusUpdater)
     services/     Casos de uso (ListProductsService, CreateOrderService)
-    validators/   Validacion de entrada de negocio (order-validator)
+    validators/   Validacion de entrada de negocio (order-validator, checkout-validator)
   infra/
     db/           Cliente DynamoDB (AWS SDK v3)
     repositories/ Implementaciones DynamoDB de puertos
-  handlers/       Entry points Lambda (buildGetProductsHandler, buildCreateOrderHandler)
+  handlers/       Entry points Lambda (buildGetProductsHandler, buildCreateOrderHandler,
+                  buildCreateCheckoutSessionHandler, buildStripeWebhookHandler)
   config/         Lectura de variables de entorno
   shared/         Helpers HTTP (respuestas, parseo de body, headers)
 ```
@@ -49,6 +50,8 @@ Cada handler Lambda es una funcion pura construida mediante una factoria (`build
 - Lenguaje: TypeScript 5 (compilado con `ts-node` en desarrollo)
 - Infraestructura: Serverless Framework v4
 - Nube: AWS Lambda + API Gateway + DynamoDB
+- Pagos: Stripe (Checkout Sessions + webhooks firmados)
+- Secrets: AWS SSM Parameter Store (SecureString)
 - AWS SDK: v3 (`@aws-sdk/client-dynamodb`, `@aws-sdk/lib-dynamodb`)
 - IDs de orden: `uuid` v4
 - Testing: Node.js test runner nativo (sin dependencias externas de test)
@@ -95,14 +98,17 @@ npm install
 
 El backend lee sus variables mediante `src/config/env.ts` con fallbacks seguros. No requiere archivo `.env` para funcionar; las variables se inyectan via `serverless.yml` en despliegue.
 
-| Variable                          | Descripcion                              | Default     |
-|-----------------------------------|------------------------------------------|-------------|
-| `PRODUCTS_TABLE`                  | Nombre de la tabla DynamoDB de productos | `Products`  |
-| `ORDERS_TABLE`                    | Nombre de la tabla DynamoDB de ordenes   | `Products`  |
-| `ALLOWED_ORIGIN`                  | Valor del header CORS                    | `*`         |
-| `AWS_NODEJS_CONNECTION_REUSE_ENABLED` | Reutilizacion de conexiones HTTP     | `1`         |
+| Variable                              | Descripcion                              | Origen en deploy             |
+|---------------------------------------|------------------------------------------|------------------------------|
+| `PRODUCTS_TABLE`                      | Nombre de la tabla DynamoDB de productos | `serverless.yml` custom      |
+| `ORDERS_TABLE`                        | Nombre de la tabla DynamoDB de ordenes   | `serverless.yml` custom      |
+| `ALLOWED_ORIGIN`                      | Valor del header CORS                    | Env o `*`                    |
+| `PRODUCT_IMAGES_BASE_URL`             | Base URL del CDN para imagenes de producto | Env o default por stage    |
+| `AWS_NODEJS_CONNECTION_REUSE_ENABLED` | Reutilizacion de conexiones HTTP         | Fijo en `serverless.yml`     |
+| `STRIPE_SECRET_KEY`                   | Clave secreta de Stripe                  | SSM `/nexora/{stage}/stripe/secret_key` |
+| `STRIPE_WEBHOOK_SECRET`               | Secret de firma de webhook Stripe        | SSM `/nexora/{stage}/stripe/webhook_secret` |
 
-> **Nota:** `ORDERS_TABLE` usa `Products` como fallback porque en el entorno actual se opera con tabla unica. En entornos con tabla dedicada de ordenes, definir `ORDERS_TABLE` explicitamente.
+> Los secrets de Stripe **nunca se definen en codigo ni en archivos de entorno**. Se almacenan en AWS SSM Parameter Store como `SecureString` y se inyectan en tiempo de deploy por Serverless Framework.
 
 ---
 
@@ -138,41 +144,98 @@ npm run test:watch
 
 ### Cobertura de pruebas
 
-| Archivo de prueba                                | Que cubre                                      |
-|--------------------------------------------------|------------------------------------------------|
-| `tests/order-validator.test.ts`                 | Validacion de payload de orden                 |
-| `tests/create-order-service.test.ts`            | Logica de creacion de orden y calculo de total |
-| `tests/create-order-handler.integration.test.ts`| Flujo HTTP completo de POST /orders            |
-| `tests/get-products-handler.integration.test.ts`| Flujo HTTP completo de GET /products           |
+| Archivo de prueba                                        | Que cubre                                                 |
+|----------------------------------------------------------|-----------------------------------------------------------|
+| `tests/order-validator.test.ts`                         | Validacion de payload de orden                            |
+| `tests/create-order-service.test.ts`                    | Logica de creacion de orden y calculo de total            |
+| `tests/create-order-handler.integration.test.ts`        | Flujo HTTP completo de POST /orders                       |
+| `tests/get-products-handler.integration.test.ts`        | Flujo HTTP completo de GET /products                      |
+| `tests/create-checkout-session-handler.integration.test.ts` | POST /checkout/session, idempotency key, errores Stripe |
+| `tests/stripe-webhook-handler.integration.test.ts`      | POST /webhooks/stripe, firma invalida, idempotencia       |
 
 ---
 
 ## Despliegue
 
+### Deploy por stage
+
 ```bash
+# Stage dev
 npx serverless deploy --stage dev --region us-east-1
+
+# Stage stage
+npx serverless deploy --stage stage --region us-east-1
+
+# Stage prod
+npx serverless deploy --stage prod --region us-east-1
 ```
 
-El despliegue actualiza:
-- Las funciones Lambda (`getProducts`, `createOrder`).
-- Los permisos IAM del rol de ejecucion Lambda sobre DynamoDB.
-- La configuracion de API Gateway con CORS habilitado.
-- Las alarmas CloudWatch de errores (`getProducts` y `createOrder`).
+### Promotion via GitHub Actions
 
-> **Requisito de permisos:** el usuario AWS de despliegue debe tener permisos de CloudFormation, Lambda, API Gateway e IAM. En este entorno no tiene permisos de `dynamodb:TagResource`, por lo que las tablas DynamoDB **no se crean desde serverless**: deben existir previamente.
+El workflow `.github/workflows/deploy-backend.yml` gestiona el promotion flow:
+
+| Job            | Disparo                           | Descripcion                                          |
+|----------------|-----------------------------------|------------------------------------------------------|
+| `quality-gate` | Automatico en cada push           | typecheck, tests, npm audit high                     |
+| `deploy-dev`   | Auto en push a `main`             | Deploy + smoke test GET /v1/products                |
+| `deploy-stage` | Manual via `Run workflow`         | Deploy a stage con GitHub Environment `stage`        |
+| `deploy-prod`  | Manual via `Run workflow`         | Deploy a prod, requiere aprobacion de revisor        |
+
+El despliegue actualiza:
+- Las funciones Lambda (`getProducts`, `createOrder`, `createCheckoutSession`, `stripeWebhook`).
+- Los permisos IAM del rol de ejecucion Lambda sobre DynamoDB.
+- La configuracion de API Gateway con CORS habilitado (excepto `/webhooks/stripe`).
+- Las alarmas CloudWatch de errores.
+- El bucket S3 `ProductImagesBucket` para almacenar imagenes de producto.
+
+### CDN de imagenes
+
+La distribucion CloudFront se crea por separado con [scripts/setup-cdn.ps1](../../scripts/setup-cdn.ps1), porque el usuario de deploy puede no tener permisos `cloudfront:CreateDistribution`.
+
+```powershell
+.\scripts\setup-cdn.ps1 -Stage dev
+```
+
+URL actual de `dev`:
+
+```text
+https://d2ouygleh8pygc.cloudfront.net
+```
+
+Cuando `PRODUCT_IMAGES_BASE_URL` esta configurada, el backend resuelve automaticamente:
+
+- `PRODUCT#001` → `remera.png`
+- `PRODUCT#002` → `taza.png`
+- `PRODUCT#003` → `gorra.png`
+
+### Outputs de CloudFormation
+
+Tras el deploy, el stack expone:
+
+```bash
+npx serverless info --stage dev --region us-east-1
+```
+
+| Output                    | Descripcion                                        |
+|---------------------------|----------------------------------------------------|
+| `ProductImagesBucketName` | Nombre del bucket S3 para imagenes de productos    |
+
+> **Requisito de permisos:** el usuario AWS de despliegue debe tener permisos de CloudFormation, Lambda, API Gateway, S3 e IAM. Las tablas DynamoDB deben existir previamente (no se crean desde serverless por restriccion de `dynamodb:TagResource`).
 
 > **Nota sobre CloudWatch alarms:** el usuario AWS de despliegue debe tener permiso `cloudwatch:PutMetricAlarm` para crear/actualizar alarmas durante `serverless deploy`.
+
+> **CloudFront propagation:** la primera creacion de la distribucion CloudFront puede tardar 10-15 minutos. Los deploys posteriores son mas rapidos.
 
 ---
 
 ## Verificacion post-deploy
 
-Tras el despliegue, Serverless imprime los endpoints. Verificar con:
+Tras el despliegue, Serverless imprime los endpoints. Los endpoints usan el prefijo `/v1/` desde Fase 5:
 
-**Productos:**
+**Productos (v1):**
 
 ```bash
-curl "https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev/products?limit=3"
+curl "https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev/v1/products?limit=3"
 ```
 
 Respuesta esperada (`200`):
@@ -185,16 +248,16 @@ Respuesta esperada (`200`):
       "name": "Gorra Nexora",
       "description": "Gorra negra ajustable con logo Nexora",
       "price": 1800,
-      "imageUrl": "https://picsum.photos/seed/003/300/200"
+      "imageUrl": "https://d2ouygleh8pygc.cloudfront.net/gorra.png"
     }
   ]
 }
 ```
 
-**Crear orden:**
+**Crear orden (v1):**
 
 ```bash
-curl -X POST "https://TU_API_ID.execute-api.us-east-1.amazonaws.com/dev/orders" \
+curl -X POST "https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev/v1/orders" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Ada Lovelace",
@@ -233,10 +296,14 @@ npx serverless logs -f getProducts --stage dev --region us-east-1 --startTime 10
 
 ## API: endpoints y contrato
 
-| Metodo | Path        | Descripcion                        |
-|--------|-------------|------------------------------------|
-| GET    | `/products` | Listar productos (`?limit=N`, max 100) |
-| POST   | `/orders`   | Crear una orden                    |
+Desde Fase 5 todos los endpoints de negocio usan prefijo `/v1/`. El webhook de Stripe no se versiona (es controlado por Stripe).
+
+| Metodo | Path                    | Descripcion                                               |
+|--------|-------------------------|-----------------------------------------------------------|
+| GET    | `/v1/products`          | Listar productos (`?limit=N`, max 100)                    |
+| POST   | `/v1/orders`            | Crear una orden                                           |
+| POST   | `/v1/checkout/session`  | Crear sesion de pago Stripe (requiere `Idempotency-Key`)  |
+| POST   | `/webhooks/stripe`      | Recibir eventos Stripe (firma verificada, sin CORS)       |
 
 El contrato completo con schemas de request, response y errores esta en:
 
@@ -294,11 +361,24 @@ Esquema de item en DynamoDB:
 
 ## Troubleshooting
 
+**400 en POST /checkout/session:**
+
+Verificar que el cliente incluye el header `Idempotency-Key` con valor de entre 8 y 255 caracteres.
+
+**400 en POST /webhooks/stripe (firma invalida):**
+
+Verificar que `STRIPE_WEBHOOK_SECRET` en SSM coincide con el secret del webhook configurado en el dashboard de Stripe.
+
+```bash
+aws ssm get-parameter --name "/nexora/dev/stripe/webhook_secret" --region us-east-1 --query "Parameter.Version"
+```
+
 **500 al llamar a un endpoint:**
 
 1. Verificar logs de Lambda:
    ```bash
    npx serverless logs -f createOrder --stage dev --region us-east-1 --startTime 10m
+   npx serverless logs -f stripeWebhook --stage dev --region us-east-1 --startTime 10m
    ```
 2. Confirmar que la tabla DynamoDB existe en la region correcta.
 3. Verificar que el rol Lambda tiene los permisos IAM definidos en `serverless.yml`.

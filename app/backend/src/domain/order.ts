@@ -17,9 +17,11 @@ export interface CreateOrderInput {
   items: CreateOrderItemInput[]
 }
 
+export type OrderStatus = "PENDING" | "PAID" | "FAILED" | "CANCELLED"
+
 export interface OrderRecord extends CreateOrderInput {
   orderId: string
   total: number
-  status: "PENDING"
+  status: OrderStatus
   createdAt: string
 }

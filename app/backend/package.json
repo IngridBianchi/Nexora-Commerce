@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test --require ts-node/register/transpile-only tests/**/*.test.ts",
+    "test:payments-consistency": "node --test --require ts-node/register/transpile-only tests/create-checkout-session-handler.integration.test.ts tests/stripe-webhook-handler.integration.test.ts tests/payment-reconciliation-consistency.integration.test.ts",
     "test:watch": "node --test --watch --require ts-node/register/transpile-only tests/**/*.test.ts",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "test:load": "k6 run tests/performance/load.k6.js",
@@ -25,7 +26,10 @@
     "@aws-sdk/client-dynamodb": "^3.1012.0",
     "@aws-sdk/client-s3": "^3.1012.0",
     "@aws-sdk/lib-dynamodb": "^3.1012.0",
+    "@sentry/aws-serverless": "^10.46.0",
+    "aws-xray-sdk-core": "^3.12.0",
     "serverless": "^4.33.0",
+    "stripe": "^21.0.1",
     "uuid": "^13.0.0"
   }
 }

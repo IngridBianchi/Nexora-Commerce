@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/serverlessframework.json
 # "org" ensures this Service is used with the correct Serverless Framework Access Key.
 org: ingrid1991
 service: nexora-backend
@@ -5,12 +6,21 @@ service: nexora-backend
 custom:
   productsTableName: ${env:PRODUCTS_TABLE, 'Products'}
   ordersTableName: ${env:ORDERS_TABLE, 'Products'}
+  stripeSecretKeyPath: /nexora/${sls:stage}/stripe/secret_key
+  stripeWebhookSecretPath: /nexora/${sls:stage}/stripe/webhook_secret
+  productImagesBaseUrlByStage:
+    dev: https://d2ouygleh8pygc.cloudfront.net
+    stage: ''
+    prod: ''
+  apiVersion: v1
 
 provider:
   name: aws
   runtime: nodejs18.x
   stage: ${opt:stage, 'dev'}
   region: us-east-1
+  tracing:
+    lambda: true
   iam:
     role:
       statements:
@@ -19,6 +29,8 @@ provider:
             - dynamodb:Scan
             - dynamodb:Query
             - dynamodb:GetItem
+            - dynamodb:BatchGetItem
+            - dynamodb:UpdateItem
             - dynamodb:DescribeTable
           Resource:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.productsTableName}
@@ -27,21 +39,37 @@ provider:
             - dynamodb:PutItem
             - dynamodb:UpdateItem
             - dynamodb:GetItem
+            - dynamodb:Query
             - dynamodb:DescribeTable
           Resource:
             - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.ordersTableName}
+        - Effect: Allow
+          Action:
+            - dynamodb:TransactWriteItems
+          Resource:
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.productsTableName}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/${self:custom.ordersTableName}
+        - Effect: Allow
+          Action:
+            - xray:PutTraceSegments
+            - xray:PutTelemetryRecords
+          Resource: "*"
   environment:
     PRODUCTS_TABLE: ${self:custom.productsTableName}
     ORDERS_TABLE: ${self:custom.ordersTableName}
     ALLOWED_ORIGIN: ${env:ALLOWED_ORIGIN, '*'}
+    PRODUCT_IMAGES_BASE_URL: ${env:PRODUCT_IMAGES_BASE_URL, self:custom.productImagesBaseUrlByStage.${sls:stage}, ''}
+    STRIPE_SECRET_KEY: ${ssm:${self:custom.stripeSecretKeyPath}}
+    STRIPE_WEBHOOK_SECRET: ${ssm:${self:custom.stripeWebhookSecretPath}}
     AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    SENTRY_DSN: ${ssm:/nexora/${sls:stage}/sentry/dsn, ''}
 
 functions:
   getProducts:
     handler: src/products.getProducts
     events:
       - http:
-          path: products
+          path: ${self:custom.apiVersion}/products
           method: get
           cors: true
 
@@ -49,9 +77,40 @@ functions:
     handler: src/orders.createOrder
     events:
       - http:
-          path: orders
+          path: ${self:custom.apiVersion}/orders
           method: post
           cors: true
+
+  createCheckoutSession:
+    handler: src/checkout.createCheckoutSession
+    events:
+      - http:
+          path: ${self:custom.apiVersion}/checkout/session
+          method: post
+          cors:
+            origins:
+              - '*'
+            headers:
+              - Content-Type
+              - Authorization
+              - Idempotency-Key
+              - X-Amz-Date
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+              - X-Amzn-Trace-Id
+            methods:
+              - OPTIONS
+              - POST
+            allowCredentials: false
+
+  stripeWebhook:
+    handler: src/webhook.stripeWebhook
+    events:
+      - http:
+          path: webhooks/stripe
+          method: post
+          cors: false
 
 resources:
   Resources:
@@ -88,3 +147,146 @@ resources:
         Threshold: 1
         ComparisonOperator: GreaterThanOrEqualToThreshold
         TreatMissingData: notBreaching
+
+    CreateCheckoutSessionErrorsAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-createCheckoutSession-errors
+        AlarmDescription: Alarm when createCheckoutSession Lambda has errors
+        Namespace: AWS/Lambda
+        MetricName: Errors
+        Dimensions:
+          - Name: FunctionName
+            Value: ${self:service}-${sls:stage}-createCheckoutSession
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+
+    StripeWebhookErrorsAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-stripeWebhook-errors
+        AlarmDescription: Alarm when stripeWebhook Lambda has errors
+        Namespace: AWS/Lambda
+        MetricName: Errors
+        Dimensions:
+          - Name: FunctionName
+            Value: ${self:service}-${sls:stage}-stripeWebhook
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 1
+        ComparisonOperator: GreaterThanOrEqualToThreshold
+        TreatMissingData: notBreaching
+
+    # SLO: p95 latency alarms
+    GetProductsLatencyAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-getProducts-latency-p95
+        AlarmDescription: SLO breach - getProducts p95 latency > 500ms
+        Namespace: AWS/Lambda
+        MetricName: Duration
+        Dimensions:
+          - Name: FunctionName
+            Value: ${self:service}-${sls:stage}-getProducts
+        ExtendedStatistic: p95
+        Period: 300
+        EvaluationPeriods: 3
+        Threshold: 500
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+
+    CreateOrderLatencyAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-createOrder-latency-p95
+        AlarmDescription: SLO breach - createOrder p95 latency > 800ms
+        Namespace: AWS/Lambda
+        MetricName: Duration
+        Dimensions:
+          - Name: FunctionName
+            Value: ${self:service}-${sls:stage}-createOrder
+        ExtendedStatistic: p95
+        Period: 300
+        EvaluationPeriods: 3
+        Threshold: 800
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+
+    CreateCheckoutSessionLatencyAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-createCheckoutSession-latency-p95
+        AlarmDescription: SLO breach - createCheckoutSession p95 latency > 2000ms
+        Namespace: AWS/Lambda
+        MetricName: Duration
+        Dimensions:
+          - Name: FunctionName
+            Value: ${self:service}-${sls:stage}-createCheckoutSession
+        ExtendedStatistic: p95
+        Period: 300
+        EvaluationPeriods: 3
+        Threshold: 2000
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+
+    # Backend error rate SLO via custom EMF metric
+    BackendErrorRateAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-${sls:stage}-backend-errors
+        AlarmDescription: SLO breach - backend error rate elevated
+        Namespace: Nexora/Backend
+        MetricName: BackendErrors
+        Dimensions:
+          - Name: Function
+            Value: createOrder
+        Statistic: Sum
+        Period: 300
+        EvaluationPeriods: 2
+        Threshold: 5
+        ComparisonOperator: GreaterThanThreshold
+        TreatMissingData: notBreaching
+
+    # CDN: S3 bucket para imagenes de productos
+    ProductImagesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:service}-${sls:stage}-product-images
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: false
+          BlockPublicPolicy: false
+          IgnorePublicAcls: false
+          RestrictPublicBuckets: false
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins: ["*"]
+              AllowedMethods: [GET, HEAD]
+              AllowedHeaders: ["*"]
+              MaxAge: 86400
+
+    ProductImagesBucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: ProductImagesBucket
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Action: s3:GetObject
+              Resource:
+                Fn::Sub: "arn:aws:s3:::${ProductImagesBucket}/*"
+
+    # NOTA: La distribucion CloudFront se gestiona por separado (scripts/setup-cdn.ps1)
+    # porque requiere permisos cloudfront:CreateDistribution adicionales.
+
+  Outputs:
+    ProductImagesBucketName:
+      Description: S3 bucket para imagenes de productos
+      Value:
+        Ref: ProductImagesBucket

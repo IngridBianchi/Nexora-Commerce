@@ -2,30 +2,30 @@ import { Product } from "./types"
 
 export const productsCatalog: Product[] = [
   {
-    id: "bluetooth-headphones",
-    name: "Auriculares Bluetooth",
-    description: "Auriculares inalambricos con cancelacion de ruido",
-    price: 59.99,
-    imageUrl: "https://picsum.photos/300/200?random=1",
-    category: "Audio",
-    stock: 8
+    id: "001",
+    name: "Remera Nexora",
+    description: "Remera de algodon con logo Nexora",
+    price: 2500,
+    imageUrl: "/remera.png",
+    category: "Indumentaria",
+    stock: 50
   },
   {
-    id: "smartwatch-nexora",
-    name: "Smartwatch Nexora",
-    description: "Reloj inteligente con monitoreo de salud",
-    price: 129.99,
-    imageUrl: "https://picsum.photos/300/200?random=2",
-    category: "Wearables",
-    stock: 0
+    id: "002",
+    name: "Taza Nexora",
+    description: "Taza ceramica blanca con logo Nexora",
+    price: 1200,
+    imageUrl: "/taza.png",
+    category: "Accesorios",
+    stock: 100
   },
   {
-    id: "notebook-ultralight",
-    name: "Notebook Ultralight",
-    description: "Laptop ligera con 16GB RAM y SSD 512GB",
-    price: 999.99,
-    imageUrl: "https://picsum.photos/300/200?random=3",
-    category: "Computacion",
-    stock: 3
+    id: "003",
+    name: "Gorra Nexora",
+    description: "Gorra negra ajustable con logo Nexora",
+    price: 1800,
+    imageUrl: "/gorra.png",
+    category: "Accesorios",
+    stock: 30
   }
 ]

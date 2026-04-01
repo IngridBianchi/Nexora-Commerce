@@ -40,6 +40,9 @@ next-env.d.ts
 # Deployment
 .vercel/
 
+# Serverless local artifacts
+app/backend/.serverless/
+
 # Logs
 *.log
 npm-debug.log*
@@ -59,4 +62,7 @@ Thumbs.db
 *.pem
 CORRECCIONES_SOLID_SEGURIDAD.md
 ROADMAP.md
-
+archivo.md
+recuiter-one-pager.md
+recuiter-one-pager-es.md
+release-checklist.md

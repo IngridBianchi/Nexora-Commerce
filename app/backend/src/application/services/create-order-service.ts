@@ -94,7 +94,7 @@ export class CreateOrderService {
     return {
       orderId: order.orderId,
       total: order.total,
-      status: order.status
+      status: "PENDING"
     }
   }
 }

@@ -1,6 +1,22 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": [
+    "NEXT_PUBLIC_API_BASE_URL",
+    "NODE_ENV",
+    "ADMIN_TOKEN",
+    "AWS_REGION",
+    "ORDERS_TABLE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "STOREFRONT_DEMO_EMAIL",
+    "STOREFRONT_DEMO_PASSWORD",
+    "STOREFRONT_AUTH_SECRET",
+    "STOREFRONT_USERS_TABLE",
+    "STOREFRONT_EMAIL_FROM",
+    "STOREFRONT_EMAIL_REPLY_TO",
+    "STOREFRONT_EMAIL_REGION"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

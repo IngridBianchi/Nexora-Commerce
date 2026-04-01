@@ -2,7 +2,14 @@ import { BatchGetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb"
 import { Product } from "../../domain/product"
 import { ProductReader } from "../../application/ports/product-reader"
 import { ProductCatalogReader, ProductForOrder } from "../../application/ports/product-catalog-reader"
+import { env } from "../../config/env"
 import { db } from "../db/client"
+
+const PRODUCT_IMAGE_FILE_NAMES: Record<string, string> = {
+  "001": "remera.png",
+  "002": "taza.png",
+  "003": "gorra.png"
+}
 
 function toPositiveNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -22,6 +29,13 @@ function toPositiveNumber(value: unknown): number | null {
 function resolveImageUrl(id: string, rawImageUrl: unknown): string {
   if (typeof rawImageUrl === "string" && rawImageUrl.trim().length > 0) {
     return rawImageUrl
+  }
+
+  const imageFileName = PRODUCT_IMAGE_FILE_NAMES[id]
+  const productImagesBaseUrl = env.productImagesBaseUrl.replace(/\/+$/, "")
+
+  if (imageFileName && productImagesBaseUrl.length > 0) {
+    return `${productImagesBaseUrl}/${imageFileName}`
   }
 
   const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32)

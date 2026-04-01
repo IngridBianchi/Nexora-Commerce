@@ -1,0 +1,21 @@
+{
+  "yaml.schemaStore.enable": false,
+  "yaml.customTags": [
+    "!Ref scalar",
+    "!Sub scalar",
+    "!Sub sequence",
+    "!GetAtt scalar",
+    "!GetAtt sequence",
+    "!Select sequence",
+    "!Split sequence",
+    "!Join sequence",
+    "!If sequence",
+    "!Equals sequence",
+    "!Not sequence",
+    "!And sequence",
+    "!Or sequence",
+    "!ImportValue scalar",
+    "!Condition scalar",
+    "!FindInMap sequence"
+  ]
+}
