@@ -93,10 +93,10 @@ jobs:
 
       - name: Smoke test dev
         run: |
-          URL="https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev/products?limit=1"
+          URL="https://bhyrxu22xc.execute-api.us-east-1.amazonaws.com/dev/v1/products?limit=1"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
           if [ "$STATUS" != "200" ]; then
-            echo "::error::Smoke test failed — GET /products returned $STATUS"
+            echo "::error::Smoke test failed — GET /v1/products returned $STATUS"
             exit 1
           fi
           echo "Smoke test passed ($STATUS)"
